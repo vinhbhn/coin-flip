@@ -65,6 +65,17 @@ impl SlotMachine {
         rand
     }
 
+    pub fn withdraw(&mut self, amount: U128) {
+        let amount_u128 = amount.into();
+        let account_id = env::signer_account_id();
+        let mut credits = self.credits.get(&account_id).unwrap_or(0);
+        assert!(credits >= amount_u128, "not enough credits to withdraw");
+        assert!(env::account_balance() >= credits, "missing funds");
+        credits -= amount_u128;
+        self.credits.insert(&account_id, &credits);
+        Promise::new(account_id).transfer(credits); 
+    }
+
     pub fn get_credits(&self, account_id: AccountId) -> U128 {
         self.credits.get(&account_id).unwrap_or(0).into()
     }
@@ -74,6 +85,10 @@ impl SlotMachine {
 mod tests {
     use super::*;
     use near_sdk::{testing_env, MockedBlockchain, VMContext};
+
+    fn ntoy(near_amount: u128) -> U128 {
+        U128(near_amount * ONE_NEAR)
+    }
 
     fn get_context() -> VMContext {
         VMContext {
@@ -102,13 +117,13 @@ mod tests {
         testing_env!(context.clone());
         let mut contract = SlotMachine::new(context.current_account_id.clone());
 
-        context.attached_deposit = 2 * ONE_NEAR;
+        context.attached_deposit = ntoy(2).into();
         testing_env!(context.clone());
 
         contract.deposit();
         let credit = contract.get_credits(context.signer_account_id.clone());
 
-        assert_eq!(credit, U128(2 * ONE_NEAR));
+        assert_eq!(credit, ntoy(2));
     }
 
     #[test]
@@ -117,20 +132,40 @@ mod tests {
         testing_env!(context.clone());
         let mut contract = SlotMachine::new(context.current_account_id.clone());
 
-        context.attached_deposit = 2 * ONE_NEAR;
+        context.attached_deposit = ntoy(2).into();
         testing_env!(context.clone());
 
         contract.deposit();
         let credit = contract.get_credits(context.signer_account_id.clone());
 
-        assert_eq!(credit, U128(2 * ONE_NEAR));
+        assert_eq!(credit, ntoy(2));
 
         let rand = contract.play();
         let credit = contract.get_credits(context.signer_account_id.clone());
         if rand < PROB {
-            assert_eq!(credit, U128(11 * ONE_NEAR));
+            assert_eq!(credit, ntoy(11));
         } else {
-            assert_eq!(credit, U128(ONE_NEAR));
+            assert_eq!(credit, ntoy(1));
         }
+    }
+
+    #[test]
+    fn withdraw_works() {
+        let mut context = get_context();
+        testing_env!(context.clone());
+        let mut contract = SlotMachine::new(context.current_account_id.clone());
+
+        context.attached_deposit = ntoy(2).into();
+        testing_env!(context.clone());
+
+        contract.deposit();
+        let credit = contract.get_credits(context.signer_account_id.clone());
+
+        assert_eq!(credit, ntoy(2));
+
+        contract.withdraw(ntoy(2));
+        let credit = contract.get_credits(context.signer_account_id.clone());
+
+        assert_eq!(credit, ntoy(0));
     }
 }
