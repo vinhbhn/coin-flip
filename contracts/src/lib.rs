@@ -65,8 +65,8 @@ impl SlotMachine {
         rand
     }
 
-    pub fn get_credits(&self, account_id: AccountId) -> u128 {
-        self.credits.get(&account_id).unwrap_or(0)
+    pub fn get_credits(&self, account_id: AccountId) -> U128 {
+        self.credits.get(&account_id).unwrap_or(0).into()
     }
 }
 
@@ -108,7 +108,7 @@ mod tests {
         contract.deposit();
         let credit = contract.get_credits(context.signer_account_id.clone());
 
-        assert_eq!(credit, 2 * ONE_NEAR);
+        assert_eq!(credit, U128(2 * ONE_NEAR));
     }
 
     #[test]
@@ -123,14 +123,14 @@ mod tests {
         contract.deposit();
         let credit = contract.get_credits(context.signer_account_id.clone());
 
-        assert_eq!(credit, 2 * ONE_NEAR);
+        assert_eq!(credit, U128(2 * ONE_NEAR));
 
         let rand = contract.play();
         let credit = contract.get_credits(context.signer_account_id.clone());
         if rand < PROB {
-            assert_eq!(credit, 11 * ONE_NEAR);
+            assert_eq!(credit, U128(11 * ONE_NEAR));
         } else {
-            assert_eq!(credit, ONE_NEAR);
+            assert_eq!(credit, U128(ONE_NEAR));
         }
     }
 }
